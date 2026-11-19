@@ -1,5 +1,26 @@
 [
-  { "file": "1-checklist.jpg", "path": "/", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "2-silver.jpg", "path": "/", "grade": "silver", "viewport": { "width": 1280, "height": 800 } },
-  { "file": "3-bronze.jpg", "path": "/", "grade": "bronze", "scroll": 1400, "viewport": { "width": 1280, "height": 800 } }
+  {
+    "file": "1-cover.jpg",
+    "path": "/#/checklist",
+    "viewport": { "width": 1280, "height": 800 },
+    "note": "Cover: checklist seeded 13/55 earned — progress header with grade chips, search and kind/grade filters, earned story names beside masked Hidden Trophy rows and part-way PSN counters; The Shootist guide pane open with guide, steps, visible sources and its 12/42 counter. Spoiler shield on."
+  },
+  {
+    "file": "2-roadmap.jpg",
+    "path": "/#/roadmap",
+    "viewport": { "width": 1280, "height": 800 },
+    "note": "Platinum roadmap: ordered stages with live progress bars and per-trophy chips (earned, unearned, masked). Spoiler shield on."
+  },
+  {
+    "file": "3-missables.jpg",
+    "path": "/#/missables",
+    "viewport": { "width": 1280, "height": 800 },
+    "note": "Missables page: all 8 potentially-missable flags with their inferred reasons and the roadmap stage to do them in. Spoiler shield switched off to show every detail."
+  },
+  {
+    "file": "4-settings.jpg",
+    "path": "/#/settings",
+    "viewport": { "width": 1280, "height": 800 },
+    "note": "Save & Settings: spoiler shield on with a live three-row preview (masked / earned / visible), save statistics, export/import/reset, and the data sources. Shield at work."
+  }
 ]
