@@ -1,33 +1,23 @@
-// Save state: earned trophies, PSN counters, notes, settings and the planner queue.
-// Persisted to localStorage only — no cookies, no network. Export/import is a plain JSON file.
+// The save: earned trophies, PSN counters, notes, settings and the planner queue.
+// localStorage only — no cookies, no network. Export/import is a plain JSON file.
 
 const KEY = 'leonida-legend-save-v1';
 
-function defaultState() {
+function freshSave() {
   return {
     v: 1,
-    earned: {},      // id -> ISO timestamp of when it was marked earned
-    counters: {},    // id -> current value toward psnTarget
-    notes: {},       // id -> free text
+    earned: {},    // trophy id -> ISO timestamp when it was ticked
+    counters: {},  // trophy id -> progress toward its psnTarget
+    notes: {},     // trophy id -> personal text
     settings: { spoilerShield: true, hideEarned: false },
-    queue: [],       // planner: ordered trophy ids
+    queue: [],     // planner order (trophy ids)
   };
 }
 
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultState();
-    return sanitize(JSON.parse(raw)) ?? defaultState();
-  } catch {
-    return defaultState();
-  }
-}
-
-/** Accept only well-formed saves; drop anything suspicious. */
+/** Accept only well-formed saves; anything suspicious falls back to a fresh one. */
 function sanitize(obj) {
   if (!obj || typeof obj !== 'object' || obj.v !== 1) return null;
-  const s = defaultState();
+  const s = freshSave();
   const idOk = (k) => /^\d+$/.test(k) && Number(k) >= 1 && Number(k) <= 55;
   if (obj.earned && typeof obj.earned === 'object') {
     for (const [k, v] of Object.entries(obj.earned)) if (idOk(k) && typeof v === 'string') s.earned[k] = v;
@@ -46,7 +36,16 @@ function sanitize(obj) {
   return s;
 }
 
-let state = load();
+function readSave() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (sanitize(JSON.parse(raw)) ?? freshSave()) : freshSave();
+  } catch {
+    return freshSave();
+  }
+}
+
+let state = readSave();
 const listeners = new Set();
 
 export function getState() { return state; }
@@ -56,8 +55,9 @@ export function subscribe(fn) {
   return () => listeners.delete(fn);
 }
 
+/** Persist (autosave) and notify every view. */
 function commit() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full/blocked: keep in-memory state */ }
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage blocked: keep in-memory state */ }
   for (const fn of listeners) fn(state);
 }
 
@@ -69,7 +69,7 @@ export function toggleEarned(id) {
   commit();
 }
 
-/** Set a PSN counter; reaching the target auto-marks the trophy earned. */
+/** Set a counter; hitting the target auto-marks the trophy earned. */
 export function setCounter(id, value, target) {
   const v = Math.max(0, Math.min(target, Math.round(Number(value) || 0)));
   state.counters[id] = v;
@@ -113,35 +113,28 @@ export function exportSave() {
   const payload = { ...state, exportedAt: new Date().toISOString(), app: 'leonida-legend' };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = h_download(url);
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-
-function h_download(url) {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'leonida-legend-save.json';
-  return a;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 /** Read an exported file back; returns {ok, message}. */
 export async function importSave(file) {
   try {
-    const text = await file.text();
-    const next = sanitize(JSON.parse(text));
+    const next = sanitize(JSON.parse(await file.text()));
     if (!next) return { ok: false, message: 'That file is not a Leonida Legend save (expected version 1).' };
     state = next;
     commit();
-    const n = Object.keys(state.earned).length;
-    return { ok: true, message: `Imported: ${n} of 55 trophies earned, ${Object.keys(state.notes).length} notes.` };
+    return { ok: true, message: `Imported: ${Object.keys(state.earned).length} of 55 trophies earned, ${Object.keys(state.notes).length} notes.` };
   } catch {
     return { ok: false, message: 'Could not read that file as JSON.' };
   }
 }
 
 export function resetSave() {
-  state = defaultState();
+  state = freshSave();
   commit();
 }
 

@@ -1,5 +1,5 @@
-// Next-up planner: automatic suggestions (missables first, then roadmap order)
-// plus a personal queue you can reorder. Suggestions respect the spoiler shield.
+// Next-up planner: automatic suggestions (the missable first, then roadmap
+// order) plus a personal queue you can reorder. Respects the spoiler shield.
 
 import { h, taglet } from './util.js';
 import { getState, isEarned, addToQueue, removeFromQueue, moveInQueue } from './store.js';
@@ -12,7 +12,7 @@ export function mountPlanner(root, trophies) {
 
   const suggPanel = h('section', { class: 'panel' },
     h('h2', {}, 'Suggested next up'),
-    h('p', { class: 'page-intro' }, 'Unearned trophies ranked: potentially missable first, then roadmap stage order. Add them to your queue to plan a session.'),
+    h('p', { class: 'page-intro' }, 'Unearned trophies ranked: the missable first, then roadmap stage order. Add them to your queue to plan a session.'),
     suggs.length
       ? suggs.map(({ trophy: t, reason }) => suggestion(t, reason, state))
       : h('p', { class: 'empty' }, 'Everything is earned — the platinum is yours. Leonida Legend.'));
@@ -21,7 +21,7 @@ export function mountPlanner(root, trophies) {
     h('h2', {}, `Your queue (${state.queue.length})`),
     state.queue.length
       ? state.queue.map((id) => queueRow(trophies.find((t) => t.id === id), state)).filter(Boolean)
-      : h('p', { class: 'empty' }, 'Empty. Add suggestions on the left, or open any trophy and plan from its guide.'));
+      : h('p', { class: 'empty' }, 'Empty. Add suggestions on the left, or plan from any trophy’s guide.'));
 
   root.append(h('div', { class: 'plan-grid' }, suggPanel, queuePanel));
 }
@@ -31,9 +31,9 @@ function suggestion(t, reason, state) {
   const queued = state.queue.includes(t.id);
   return h('div', { class: 'sugg' },
     h('div', {},
-      h('div', { class: 's-name' }, masked ? 'Hidden story trophy' : t.name, ' ',
-        taglet(t.grade), t.missable ? taglet('missable?', 'missable') : null),
-      h('div', { class: 's-why' }, masked ? `Stage ${t.stage} story beat — the shield hides details until earned.` : reason)),
+      h('div', { class: 's-name' }, masked ? 'Hidden trophy' : t.name, ' ',
+        taglet(t.grade), t.missable ? taglet('missable', 'missable') : null),
+      h('div', { class: 's-why' }, masked ? `Stage ${t.stage} secret — the shield hides details until earned.` : reason)),
     h('div', {},
       h('button', {
         type: 'button', class: 'btn', disabled: queued,
@@ -49,7 +49,7 @@ function suggestion(t, reason, state) {
 function queueRow(t, state) {
   if (!t) return null;
   const masked = isMasked(t, state);
-  const name = masked ? 'Hidden story trophy' : t.name;
+  const name = masked ? 'Hidden trophy' : t.name;
   return h('div', { class: 'qrow' },
     h('span', { class: 'q-name' }, `${isEarned(t.id) ? '✓ ' : ''}${name}`),
     taglet(t.grade),

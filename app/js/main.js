@@ -1,9 +1,10 @@
-// Bootstrap: load the local trophy data, render the progress header, route between
-// pages by hash, and re-render on every save change while preserving input focus.
+// Bootstrap: load the local trophy data, render the progress header with the
+// prominent spoiler toggle, route between pages by hash, and re-render on every
+// save change while preserving input focus.
 
-import { h, bar, pct } from './util.js';
-import { getState, subscribe, isEarned } from './store.js';
-import { loadTrophies, earnedCount, gradeCounts, missablesLeft, GRADES } from './data.js';
+import { h, bar } from './util.js';
+import { getState, subscribe, setSetting } from './store.js';
+import { loadTrophies, earnedCount, gradeCounts, missablesLeft, maskedCount } from './data.js';
 import { mountChecklist, updateChecklist } from './checklist.js';
 import { mountRoadmap } from './roadmap.js';
 import { mountMissables } from './missables.js';
@@ -12,6 +13,7 @@ import { mountSettings, updateSettings } from './settings.js';
 
 const view = document.getElementById('view');
 const progressEl = document.getElementById('progress');
+const shieldEl = document.getElementById('shield-toggle');
 const nav = document.getElementById('nav');
 
 let trophies = [];
@@ -35,13 +37,22 @@ function renderHeader() {
   const earned = earnedCount(trophies, state);
   const gc = gradeCounts(trophies, state);
   const miss = missablesLeft(trophies, state);
+  const masked = maskedCount(trophies, state);
   const chip = (g, label) => h('span', { class: `gchip ${g}` }, `${label} `, h('b', {}, `${gc[g].earned}/${gc[g].total}`));
   progressEl.replaceChildren(
     h('span', { class: 'big' }, earned, h('small', {}, ' / 55 earned')),
     bar(earned, trophies.length),
     h('span', { class: 'grade-chips' }, chip('platinum', 'P'), chip('gold', 'G'), chip('silver', 'S'), chip('bronze', 'B')),
-    h('span', { class: 'gchip', style: miss ? 'color:var(--danger)' : 'color:var(--ok)' },
-      miss ? `${miss} missables left` : 'missables clear'));
+    h('span', { class: `gchip ${miss ? 'miss-chip' : 'ok-chip'}` },
+      miss ? `⚠ ${miss} missable left` : 'missables clear'));
+
+  shieldEl.replaceChildren(h('button', {
+    type: 'button',
+    class: `shield-btn ${state.settings.spoilerShield ? 'on' : 'off'}`,
+    'aria-pressed': String(state.settings.spoilerShield),
+    title: 'Toggle the spoiler shield',
+    onclick: () => setSetting('spoilerShield', !state.settings.spoilerShield),
+  }, state.settings.spoilerShield ? `🛡 Spoilers hidden — ${masked}` : '🛡 Spoilers shown'));
 }
 
 function mountRoute() {

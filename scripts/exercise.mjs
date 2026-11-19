@@ -1,5 +1,6 @@
-// Headless exercise of the running app: filters, spoiler shield, counters, notes,
-// roadmap, missables, planner, export/import, persistence and offline-ness.
+// Headless exercise of the running app: stage-grouped checklist, filters with
+// counts, spoiler shield (header toggle), missable warning pane, counters, notes,
+// roadmap, missables page, planner, export/import, persistence and offline-ness.
 // Run: node scripts/exercise.mjs   (expects node serve.ts on :8080)
 
 import { createRequire } from 'node:module';
@@ -26,25 +27,32 @@ page.on('request', (r) => requests.push(r.url()));
 await page.goto(`${BASE}/#/checklist`);
 await page.waitForSelector('.trow');
 
-// 1. Full list renders.
+// 1. Full list renders, grouped into the 9 roadmap stages.
 check('55 trophy rows', await page.locator('.trow').count() === 55);
+check('9 stage bands', await page.locator('.stage-band').count() === 9);
 
-// 2. Fresh save: header 0/55, all 29 story trophies masked by the shield.
+// 2. Fresh save: header 0/55; the 28 PlayStation-hidden trophies are masked.
 check('header starts 0/55', (await page.locator('#progress .big').innerText()).includes('0'));
-check('29 masked story rows', await page.locator('.trow.masked').count() === 29);
+check('28 masked rows', await page.locator('.trow.masked').count() === 28);
+check('shield toggle shows count', (await page.locator('.shield-btn').innerText()).includes('Spoilers hidden — 28'));
 
-// 3. Guide pane opens on The Shootist with two visible sources.
-check('guide pane: The Shootist', (await page.locator('.pane h2').innerText()) === 'The Shootist');
-check('guide pane: 2 sources', await page.locator('.pane .sources a').count() === 2);
+// 3. Default pane: the missable Positive Mental Attitude with red warning + sources.
+check('pane opens on Positive Mental Attitude', (await page.locator('.pane h2').innerText()) === 'Positive Mental Attitude');
+check('red missable warning present', await page.locator('.pane .warnbox').count() === 1);
+check('warning names the window', (await page.locator('.pane .warnbox').innerText()).includes('Chapter 1'));
+check('pane has >= 5 named sources', await page.locator('.pane .sources a').count() >= 5);
+check('pane has numbered steps', await page.locator('.pane ol.steps li').count() >= 3);
+check('pane has PSN counter', await page.locator('.pane .counterbox').count() === 1);
 
 // 4. Search (non-masked trophy).
 await page.fill('input[data-focus="search"]', 'waink');
 check('search waink -> 1 row', await page.locator('.trow').count() === 1);
 await page.fill('input[data-focus="search"]', '');
 
-// 5. Kind filter: missable -> 8; grade filter: silver -> 6.
+// 5. Kind filter: missable -> 1; grade filter: silver -> 6. Pill counts visible.
+check('missable pill count is 1', (await page.locator('.chip[data-kind="missable"]').innerText()).includes('1'));
 await page.click('.chip[data-kind="missable"]');
-check('missable filter -> 8 rows', await page.locator('.trow').count() === 8);
+check('missable filter -> 1 row', await page.locator('.trow').count() === 1);
 await page.click('.chip[data-kind="all"]');
 await page.selectOption('.toolbar select', 'silver');
 check('silver filter -> 6 rows', await page.locator('.trow').count() === 6);
@@ -58,10 +66,9 @@ check('earn On the Spot -> 1/55', (await page.locator('#progress .big').innerTex
 await page.locator('.trow', { hasText: 'On the Spot' }).click();
 await page.fill('.pane input[data-focus="counter"]', '10');
 await page.press('.pane input[data-focus="counter"]', 'Tab');
-check('counter 10/10 auto-earns', (await page.locator('#progress .big').innerText()).includes('1'));
 check('counter shows 10 / 10', (await page.locator('.pane .counterbox').innerText()).includes('10 / 10'));
 
-// 8. Spoiler shield: masked row reveals when marked earned.
+// 8. Spoiler shield: a masked row reveals when marked earned.
 const maskedBefore = await page.locator('.trow.masked').count();
 await page.evaluate(() => document.querySelector('.trow.masked input[type="checkbox"]').click());
 check('mask lifts on earn', await page.locator('.trow.masked').count() === maskedBefore - 1);
@@ -75,21 +82,25 @@ await page.waitForSelector('.trow');
 await page.locator('.trow', { hasText: 'The Shootist' }).click();
 check('note persists', (await page.locator('.pane textarea').inputValue()).includes('exercise note'));
 
-// 10. Roadmap: 7 stages with progress.
+// 10. Roadmap: 9 stages with progress and the missable window callout.
 await page.goto(`${BASE}/#/roadmap`);
 await page.waitForSelector('.stage');
-check('roadmap 7 stages', await page.locator('.stage').count() === 7);
+check('roadmap 9 stages', await page.locator('.stage').count() === 9);
 check('roadmap stage progress text', (await page.locator('.stage-count').first().innerText()).includes('/'));
+check('roadmap flags the missable window', (await page.locator('.stage-miss').first().innerText()).includes('Chapter 1'));
 
-// 11. Missables: 8 flagged rows.
+// 11. Missables page: 1 flagged card + the 6-item watchlist.
 await page.goto(`${BASE}/#/missables`);
-await page.waitForSelector('.mrow');
-check('missables 8 rows', await page.locator('.mrow').count() === 8);
+await page.waitForSelector('.mcard');
+check('missables 1 card', await page.locator('.mcard').count() === 1);
+check('missables watchlist 6 items', await page.locator('.watch').count() === 6);
+check('missable card names point of no return', (await page.locator('.mcard .warnbox').innerText()).includes('Point of no return'));
 
-// 12. Planner: 5 suggestions, queue add persists.
+// 12. Planner: 5 suggestions (missable first), queue add persists.
 await page.goto(`${BASE}/#/planner`);
 await page.waitForSelector('.sugg');
 check('planner 5 suggestions', await page.locator('.sugg').count() === 5);
+check('missable suggested first', (await page.locator('.sugg .s-name').first().innerText()).includes('Positive Mental Attitude'));
 await page.locator('.sugg .btn', { hasText: 'Add' }).first().click();
 await page.reload();
 await page.waitForSelector('.qrow');
@@ -106,7 +117,6 @@ const savePath = `${SCRATCH}/exercise-save.json`;
 await download.saveAs(savePath);
 check('export filename', download.suggestedFilename() === 'leonida-legend-save.json');
 
-// Reset, then import the exported file back.
 page.once('dialog', (d) => d.accept());
 await page.click('button:has-text("Reset")');
 await page.waitForFunction(() => document.querySelector('#progress .big')?.textContent.includes('0'));
@@ -115,16 +125,14 @@ await page.waitForSelector('.msg.ok');
 check('import restores save', (await page.locator('.msg.ok').innerText()).includes('Imported'));
 check('import restored earned count', !(await page.locator('#progress .big').innerText()).includes('0'));
 
-// 14. Shield toggle changes masking live.
+// 14. Header shield toggle changes masking live.
 await page.goto(`${BASE}/#/checklist`);
 await page.waitForSelector('.trow');
 const maskedOn = await page.locator('.trow.masked').count();
-await page.goto(`${BASE}/#/settings`);
-await page.waitForSelector('.setrow');
-await page.evaluate(() => document.querySelector('.setrow .switch input').click());
-await page.goto(`${BASE}/#/checklist`);
-await page.waitForSelector('.trow');
-check('shield off un.masks all', await page.locator('.trow.masked').count() === 0 && maskedOn > 0);
+await page.click('.shield-btn');
+check('shield off unmasks all', await page.locator('.trow.masked').count() === 0 && maskedOn > 0);
+await page.click('.shield-btn');
+check('shield on re-masks', await page.locator('.trow.masked').count() === maskedOn);
 
 // 15. Offline: every request stayed on our own origin.
 const foreign = requests.filter((u) => !u.startsWith(BASE) && !u.startsWith('data:'));

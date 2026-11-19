@@ -1,21 +1,39 @@
-// Trophy data access and the derived roadmap model: stages, kinds, spoiler masking,
-// progress math and the Next-up suggestion logic. All derived from the official list.
+// Trophy data access plus the derived roadmap model: nine ordered stages built
+// from the official descriptions and the cited launch-day guides, spoiler masking,
+// progress math and Next-up suggestions.
 
 export const KIND_LABELS = { story: 'Story', collectible: 'Collectible', activity: 'Activity', online: 'Online' };
 export const GRADES = ['platinum', 'gold', 'silver', 'bronze'];
+export const CONFIDENCE_LABELS = {
+  confirmed: 'Guide-checked',
+  reported: 'Reported — unverified',
+  unknown: 'Trigger unknown',
+};
 
-/** Ordered platinum roadmap, derived from the official descriptions. */
+/** The platinum road: chapters first (one-time moments taken as they appear),
+ *  then the post-story free roam, then 100% and the platinum. */
 export const STAGES = [
-  { n: 1, title: 'Opening night', blurb: 'Play the prologue and Chapter 1. Watch for the Ocean Beach cocktail moment — its description reads like an early-story beat, so take it when offered.' },
-  { n: 2, title: 'Chapters 2–4: the story unfolds', blurb: 'Complete the numbered chapters and named missions (Breakfast Run, The Cartel Heist, Child’s Play, Headliners, VCIA Takedown, Operation Savage Glory). Keep manual saves before big missions; take one-time moments (showroom, bowling, tanks) as they appear.' },
-  { n: 3, title: 'Contacts & strangers', blurb: 'Finish the contact strands — Andy, Kenton, Billy, Randy, Tyrone — plus Bret’s unique hunt and Cal’s fishing challenge. Eight stranger strands feed the silver; do them while contacts are active.' },
-  { n: 4, title: 'The finale', blurb: 'Clear the missables list first, then complete the final mission for the gold story trophy. Treat it as a point of no return until the game proves otherwise.' },
-  { n: 5, title: 'Leonida cleanup: collect, explore, earn', blurb: 'Post-story sweep: 52 districts, 100 WAiNK spots, 18 meditation spots, 3 card sets, 100 vehicles, 8 garages, Scooter Bros registrations, and the $250k laundering / $100k spending pair.' },
-  { n: 6, title: 'Activities, races & scores to settle', blurb: '250 stunts, 42 range golds, 14 drone-race locations, 20 different race wins, 50 challenges, 5 vaults, 9 gang operations, and the combat/stealth one-offs. Partner trophies go here only if the duo is still available — otherwise do them in stage 2.' },
-  { n: 7, title: '100% and the platinum', blurb: 'Check the in-game completion stat for A Long Road, mop up anything left, and Vice Got a Price! lands with the other 54.' },
+  { n: 1, title: 'Chapter 1 — Paradise keys', chapter: 'Ch 1',
+    blurb: 'Gone Fishing, Cal, Kenton — and Lucia’s balcony meditation: it vanishes when Chapter 1 ends.' },
+  { n: 2, title: 'Chapter 2 — Vice City arrival', chapter: 'Ch 2',
+    blurb: 'Coffee Break unlocks duo roam, Bret and Billy. Daily Driver → garage app; Moses → Scooter Bros.' },
+  { n: 3, title: 'Chapter 3 — Cartel money', chapter: 'Ch 3',
+    blurb: 'Cartel Heist; Randy, Tyrone and Andy strands; Snap Gun (Yasmani) and Dye Pack Jammer (Credit Check).' },
+  { n: 4, title: 'Chapter 4 — Ocean Beach rising', chapter: 'Ch 4',
+    blurb: 'Child’s Play, Headliners, VCIA Takedown; the optional bank-vault mission; the E3/E4 airliner heist.' },
+  { n: 5, title: 'Chapter 5 — The finale', chapter: 'Ch 5',
+    blurb: 'Operation Savage Glory, then the finale. Free roam after the credits; keep chapter-boundary saves.' },
+  { n: 6, title: 'Free roam — Collect & explore', chapter: 'Post-story',
+    blurb: 'The 100% checklist opens (Progress > Stats). Card sets, WAiNK scans, vehicles, map fog, shopping.' },
+  { n: 7, title: 'Free roam — Activities & scores', chapter: 'Post-story',
+    blurb: 'Stunts, range golds, drone venues, races, challenges, arcade, Combat Focus, Strength, criminal profile.' },
+  { n: 8, title: 'Free roam — Robberies & mischief', chapter: 'Post-story',
+    blurb: 'Armored trucks, gang ops, the Mile Zero tank, Kingpin Bowling — plus secrets with unconfirmed triggers.' },
+  { n: 9, title: 'The last mile — 100% & platinum', chapter: 'Platinum',
+    blurb: '8 stranger strands, the 100% checklist (A Long Road), then Vice Got a Price! with the other 54.' },
 ];
 
-/** Fetch the local trophy file (same-origin only; the app never touches the network). */
+/** Load the local trophy file (same-origin only; the app never touches the network). */
 export async function loadTrophies() {
   const res = await fetch('data/trophies.json');
   if (!res.ok) throw new Error(`trophy data failed: ${res.status}`);
@@ -23,9 +41,14 @@ export async function loadTrophies() {
   return doc.trophies;
 }
 
-/** Spoiler shield: story trophies stay masked until earned. */
+/** Spoiler shield: the 28 trophies PlayStation hides (every story beat included)
+ *  stay masked until earned. Non-hidden trophies are always visible. */
 export function isMasked(t, state) {
-  return state.settings.spoilerShield && t.kind === 'story' && !state.earned[t.id];
+  return state.settings.spoilerShield && t.hidden && !state.earned[t.id];
+}
+
+export function maskedCount(trophies, state) {
+  return trophies.filter((t) => isMasked(t, state)).length;
 }
 
 export function earnedCount(trophies, state) {
@@ -54,10 +77,7 @@ export function missablesLeft(trophies, state) {
   return trophies.filter((t) => t.missable && !state.earned[t.id]).length;
 }
 
-/**
- * Next-up suggestions: unearned trophies, missables first, then roadmap order.
- * Each suggestion carries a plain-language reason.
- */
+/** Next-up: unearned trophies, the missable first, then roadmap order. */
 export function nextUp(trophies, state, limit = 5) {
   const pool = trophies.filter((t) => !state.earned[t.id]);
   pool.sort((a, b) =>
@@ -68,9 +88,10 @@ export function nextUp(trophies, state, limit = 5) {
 }
 
 function suggestReason(t, state) {
-  if (t.missable) return `Potentially missable — ${t.missableReason.split(':')[0].toLowerCase()}. Do it before the window closes.`;
+  if (t.missable) return `Missable — ${t.missableInfo.window}. Do it before the window closes.`;
   if (t.psnTarget && (state.counters[t.id] ?? 0) > 0) return `Counter already moving (${state.counters[t.id]}/${t.psnTarget}) — keep it going.`;
-  if (t.kind === 'story') return `Stage ${t.stage} story progress — unlocks as you play.`;
+  if (t.confidence === 'unknown') return 'Trigger unconfirmed — try it early and watch for the pop.';
+  if (t.kind === 'story') return `Stage ${t.stage} story beat — unlocks as you play.`;
   if (t.kind === 'collectible') return `Stage ${t.stage} cleanup — sweep it with the map loop.`;
   return `Stage ${t.stage} activity — knock it out in free roam.`;
 }
